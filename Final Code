@@ -1,0 +1,76 @@
+from google.colab import files
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.ensemble import RandomForestClassifier, VotingClassifier
+import xgboost as xgb
+from sklearn.metrics import classification_report, accuracy_score
+
+# Upload the Fraud.xlsx file
+print("Upload the Fraud.xlsx file:")
+uploaded_file = files.upload()
+
+# Load the dataset
+data = pd.read_excel('Fraud.xlsx')
+
+# Preprocessing the data
+# Handling missing values (if any)
+data.dropna(inplace=True)
+
+# Encoding categorical variables
+categorical_cols = ['type', 'nameOrig', 'nameDest']  # Example categorical columns
+encoder = OneHotEncoder(sparse=False)
+encoded_cols = pd.DataFrame(encoder.fit_transform(data[categorical_cols]))
+data = pd.concat([data.drop(categorical_cols, axis=1), encoded_cols], axis=1)
+
+# Scaling numerical features
+numerical_cols = ['amount', 'oldbalanceOrg', 'newbalanceOrig', 'oldbalanceDest', 'newbalanceDest']  # Example numerical columns
+scaler = StandardScaler()
+data[numerical_cols] = scaler.fit_transform(data[numerical_cols])
+
+# Splitting the data into features (X) and target (y)
+X = data.drop(columns=['isFraud', 'isFlaggedFraud'])
+y = data['isFraud']
+
+# Splitting the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Initialize classifiers
+rf_classifier = RandomForestClassifier()
+xgb_classifier = xgb.XGBClassifier()
+
+# Ensemble Classifier (Voting)
+ensemble_classifier = VotingClassifier(estimators=[('rf', rf_classifier), ('xgb', xgb_classifier)], voting='soft')
+
+# Train classifiers
+rf_classifier.fit(X_train, y_train)
+xgb_classifier.fit(X_train, y_train)
+ensemble_classifier.fit(X_train, y_train)
+
+# Predictions
+rf_predictions = rf_classifier.predict(X_test)
+xgb_predictions = xgb_classifier.predict(X_test)
+ensemble_predictions = ensemble_classifier.predict(X_test)
+
+# Calculate accuracies
+rf_accuracy = accuracy_score(y_test, rf_predictions)
+xgb_accuracy = accuracy_score(y_test, xgb_predictions)
+ensemble_accuracy = accuracy_score(y_test, ensemble_predictions)
+
+# Generate classification reports
+rf_classification_report = classification_report(y_test, rf_predictions)
+xgb_classification_report = classification_report(y_test, xgb_predictions)
+ensemble_classification_report = classification_report(y_test, ensemble_predictions)
+
+# Print results
+print("Random Forest Model Accuracy:", rf_accuracy)
+print("Detailed Classification Report for Random Forest:")
+print(rf_classification_report)
+
+print("XGBoost Model Accuracy:", xgb_accuracy)
+print("Detailed Classification Report for XGBoost:")
+print(xgb_classification_report)
+
+print("Ensemble Model Accuracy:", ensemble_accuracy)
+print("Detailed Classification Report for Ensemble Model:")
+print(ensemble_classification_report)
